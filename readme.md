@@ -240,8 +240,8 @@ https://github.com/silasmariusz/fork_u-house_card
 Enjoy
 
 
+# **🚀 AI ASSET GENERATOR**
 > [!TIP]
-> **🚀 NEW! AUTOMATIC ASSET GENERATOR**
 > 
 > You don't need to manually create 40+ images! 
 > We have created a **Free AI Tool** that generates all weather, season, and day/night variants for you in minutes.
