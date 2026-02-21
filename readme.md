@@ -13,9 +13,6 @@
 I know it's a lot, but if you don't use them then you did not unlock secret items. The journey will start now ;)
 
 ![msedge_bNu5APEUJq](https://github.com/user-attachments/assets/8405dc20-4e71-4588-a56a-044292b8ab87)
-<img width="1344" ![ezgif-84e148d15543d035](https://github.com/user-attachments/assets/7ab21adf-3d0d-4582-a500-dd3dad6949f4)
-height="768" alt="spring_lightning_day" src="https://github.com/user-attachments/assets/3386ac9c-4ff5-47a6-979a-ac8bb929eefa" />
-<img width="1344" height="768" alt="_master_reference" src="https://github.com/user-attachments/assets/faa44ef8-a15f-4b3f-93e8-2db59b9cab4a" />
 
 An advanced, glassmorphism-styled Home Assistant Lovelace card designed for monitoring home climate, weather conditions, and environmental hazards.
 
