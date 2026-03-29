@@ -1,8 +1,8 @@
 /**
- * Fork_U-House_Card v12.2 (AI Storyteller Edition) - MODDED
- * * FIX: Flex-Box Layout (Prevents 0px height collapse!)
- * * FEATURE: German Translation (de) added
- * * FEATURE: Clickable Badges (opens more-info dialog)
+ * Fork_U-House_Card v12.3 (AI Storyteller Edition) - MODDED
+ * * FIX: Bulletproof Entity Parsing (Prevents crash on missing/climate entities)
+ * * FIX: Image Pathing Restored
+ * * FIX: Flex-Box Layout
  * * FEATURE: Advanced GUI Editor
  */
 
@@ -148,7 +148,14 @@ class ForkUHouseCard extends HTMLElement {
     }
 
     _calculateImage() {
-        const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
+        // IMAGE FIX: Fallback auf verschiedene Config-Keys und direkten Datei-Support
+        const path = this._config.image || this._config.image_path || "/local/community/fork_u-house_card/images/";
+        
+        // Wenn der Pfad direkt auf ein Bild verweist (endet mit png/jpg), benutze es direkt!
+        if (path.match(/\.(png|jpe?g|webp|gif)$/i)) {
+            return path;
+        }
+
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
         const now = new Date();
@@ -189,14 +196,25 @@ class ForkUHouseCard extends HTMLElement {
           if (bgEl) {
               const img = new Image();
               img.onload = () => { bgEl.style.backgroundImage = `url('${newImage}')`; };
+              img.onerror = () => { console.warn(`Fork-U House: Bild konnte nicht geladen werden -> ${newImage}`); }
               img.src = newImage;
           }
       }
 
+      // CRASH FIX: Schusssicheres Auslesen der Entitäten (Sensoren UND Thermostate)
       const roomsData = (this._config.rooms || []).map(r => {
-        const s = this._hass.states[r.entity];
-        const v = s ? parseFloat(s.state) : null;
-        return { ...r, value: v, valid: !isNaN(v) };
+        let v = NaN;
+        if (r.entity && this._hass.states[r.entity]) {
+            const s = this._hass.states[r.entity];
+            v = parseFloat(s.state);
+            // Wenn es ein Thermostat (Climate) ist, steht die Temperatur in den Attributen!
+            if (isNaN(v) && s.attributes && s.attributes.current_temperature !== undefined) {
+                v = parseFloat(s.attributes.current_temperature);
+            }
+        }
+        // Nur wenn v eine gültige Nummer ist, wird valid auf true gesetzt
+        const isValid = typeof v === 'number' && !isNaN(v);
+        return { ...r, value: v, valid: isValid };
       });
       
       const weighted = roomsData.filter(r => r.valid && (r.weight === undefined || r.weight > 0)).map(r => r.value).sort((a,b)=>a-b);
@@ -221,7 +239,7 @@ class ForkUHouseCard extends HTMLElement {
       const container = this.shadowRoot.querySelector('.badges-layer');
       if (!container) return;
       container.innerHTML = rooms.map(room => {
-        if (!room.valid) return '';
+        if (!room.valid) return ''; // Überspringt kaputte Räume, anstatt abzustürzen!
         const top = room.y ?? 50; const left = room.x ?? 50;
         const colorClass = this._getTempColorClass(room.value);
         return `
@@ -346,9 +364,6 @@ class ForkUHouseCard extends HTMLElement {
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
-          /* WICHTIGER FIX: flex: 1 erlaubt der Karte zu wachsen, 
-            verhindert aber, dass sie auf 0 Pixel schrumpft! 
-          */
           :host { display: flex; flex: 1; width: 100%; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
           .card {
               position: relative; display: flex; flex-direction: column; flex: 1; width: 100%; 
@@ -649,6 +664,11 @@ class ForkUHouseCard extends HTMLElement {
                     </select>
                 </div>
 
+                <div style="margin-bottom: 16px;">
+                    <label for="image" style="display: block; margin-bottom: 4px; color: var(--secondary-text-color);">Bild oder Ordner-Pfad</label>
+                    <input type="text" id="image" value="${this._config.image || this._config.image_path || '/local/community/fork_u-house_card/images/'}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
+                </div>
+
                 <div style="margin-bottom: 24px;">
                     <label for="weather_entity" style="display: block; margin-bottom: 4px; color: var(--secondary-text-color);">Wetter Entität (z.B. weather.forecast_home)</label>
                     <input type="text" id="weather_entity" value="${this._config.weather_entity || ''}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
@@ -669,7 +689,7 @@ class ForkUHouseCard extends HTMLElement {
             </div>
         `;
         
-        this.querySelectorAll('#language, #weather_entity').forEach(el => {
+        this.querySelectorAll('#language, #weather_entity, #image').forEach(el => {
             el.addEventListener('change', this.configChanged.bind(this));
         });
 
@@ -685,7 +705,6 @@ class ForkUHouseCard extends HTMLElement {
     }
 }
   
-  // SICHERHEITS-CHECK: Verhindert Abstürze beim Neuladen der Karte
   if (!customElements.get('fork-u-house-card-editor')) {
       customElements.define('fork-u-house-card-editor', ForkUHouseCardEditor);
   }
@@ -694,4 +713,4 @@ class ForkUHouseCard extends HTMLElement {
   }
 
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.2", description: "Modded Edition (Flex Fix, DE-Lang, Adv. GUI Editor)" });
+  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.3", description: "Modded Edition (Bulletproof Entities, DE-Lang, Adv. GUI Editor)" });
