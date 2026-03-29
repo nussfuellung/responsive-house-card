@@ -1,8 +1,8 @@
 /**
- * Fork_U-House_Card v12.5 (AI Storyteller Edition) - MODDED
- * * FIX: Crash protection for empty/null YAML room entries
- * * FIX: Image Pathing & German Season Translation (Frühling -> spring)
- * * FIX: Host CSS height to prevent HA layout collapse
+ * Fork_U-House_Card v12.8 (Classic Image Edition)
+ * * FIX: Restored ORIGINAL Image Loading Logic 100%
+ * * FIX: Flex-Box Height Layout 
+ * * FIX: Crash protection for empty rooms/sensors
  * * FEATURE: Advanced GUI Editor
  */
 
@@ -84,7 +84,7 @@ class ForkUHouseCard extends HTMLElement {
     static getStubConfig() {
       return {
         language: "de",
-        image: "/local/community/fork_u-house_card/images/",
+        image_path: "/local/community/fork_u-house_card/images/",
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
@@ -147,72 +147,86 @@ class ForkUHouseCard extends HTMLElement {
       if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
     }
 
+    // ORIGINAL IMAGE CALCULATOR LOGIC RESTORED
     _calculateImage() {
-        let path = this._config.image || this._config.image_path || "/local/community/fork_u-house_card/images/";
+        const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
         
-        if (path.match(/\.(png|jpe?g|webp|gif)$/i)) {
-            return path;
-        }
-        if (!path.endsWith('/')) {
-            path += '/';
-        }
-
+        // 1. Pora Dnia
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
-        
+
+        // 2. Święta (Xmas Priority)
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
-        if ((month === 12 && day >= 14) || (month === 1 && day <= 14)) return `${path}winter_xmas_${timeOfDay}.png`;
-        
-        // BILD-FIX: Lowercase zwingend VOR der Map ausführen, um "Frühling" richtig zu verarbeiten!
-        let seasonRaw = this._hass.states[this._config.season_entity || '']?.state || 'summer';
-        let season = seasonRaw.toLowerCase();
-        
+        if ((month === 12 && day >= 14) || (month === 1 && day <= 14)) {
+            return `${path}winter_xmas_${timeOfDay}.png`;
+        }
+
+        // 3. Sezon (with German addition)
+        let season = this._hass.states[this._config.season_entity]?.state || 'summer';
         const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter', 'frühling': 'spring', 'sommer': 'summer', 'herbst': 'autumn' };
-        if (seasonMap[season]) season = seasonMap[season];
-        
-        const wStateRaw = this._hass.states[this._config.weather_entity || '']?.state;
+        if (seasonMap[season.toLowerCase()]) season = seasonMap[season.toLowerCase()];
+        season = season.toLowerCase();
+
+        // 4. Ścisłe Mapowanie Pogody (Strict Mapping)
+        const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
         let weatherSuffix = null;
 
         if (wStateRaw) {
             const s = wStateRaw.toLowerCase();
-            if (['lightning', 'lightning-rainy'].includes(s)) weatherSuffix = 'lightning';
-            else if (['rainy', 'pouring'].includes(s)) weatherSuffix = 'rainy';
-            else if (['snowy', 'snowy-rainy'].includes(s)) weatherSuffix = 'snowy';
-            else if (s === 'hail') weatherSuffix = 'hail';
-            else if (s === 'fog') weatherSuffix = 'fog';
+            
+            if (['lightning', 'lightning-rainy'].includes(s)) {
+                weatherSuffix = 'lightning';
+            } else if (['rainy', 'pouring'].includes(s)) {
+                weatherSuffix = 'rainy';
+            } else if (['snowy', 'snowy-rainy'].includes(s)) {
+                weatherSuffix = 'snowy';
+            } else if (s === 'hail') {
+                weatherSuffix = 'hail';
+            } else if (s === 'fog') {
+                weatherSuffix = 'fog';
+            }
         }
 
+        // 5. Sprawdzenie Boolean w Configu
         if (weatherSuffix) {
-            const configKey = `img_${season}_${timeOfDay}_${weatherSuffix}`;
+            const configKey     = `img_${season}_${timeOfDay}_${weatherSuffix}`;
             const configKey_alt = `img_${season}_${weatherSuffix}_${timeOfDay}`;
-            if (this._config[configKey] === true || this._config[configKey_alt] === true) return `${path}${season}_${weatherSuffix}_${timeOfDay}.png`;
+            
+            if (this._config[configKey] === true || this._config[configKey_alt] === true) {
+                return `${path}${season}_${weatherSuffix}_${timeOfDay}.png`;
+            }
         }
+
+        // 6. Fallback (Neutralny)
         return `${path}${season}_${timeOfDay}.png`;
     }
 
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
+      // ORIGINAL IMAGE LOADING LOGIC RESTORED
       const newImage = this._calculateImage();
       if (this._currentImageUrl !== newImage) {
           this._currentImageUrl = newImage;
           const bgEl = this.shadowRoot.querySelector('.bg-image');
           if (bgEl) {
-              bgEl.style.backgroundImage = `url('${newImage}')`;
+              const img = new Image();
+              img.onload = () => { bgEl.style.backgroundImage = `url('${newImage}')`; };
+              img.onerror = () => { console.warn(`Fork U-House: Bild nicht gefunden: ${newImage}`); };
+              img.src = newImage;
           }
       }
 
-      // CRASH-FIX: Schusssicheres Auslesen, ignoriert komplett kaputte oder leere Einträge
+      // CRASH FIX FÜR RÄUME (Das lassen wir drin, damit es nicht abstürzt!)
       const roomsData = (this._config.rooms || []).map(r => {
-        if (!r) return { valid: false }; // Fängt kaputte YAML-Zeilen ab
+        if (!r) return { valid: false };
         
         let v = NaN;
         if (r.entity && typeof r.entity === 'string' && this._hass.states[r.entity]) {
             const s = this._hass.states[r.entity];
             v = parseFloat(s.state);
-            // Temperatur-Attribut auslesen (wichtig für Thermostate)
             if (isNaN(v) && s.attributes && s.attributes.current_temperature !== undefined) {
                 v = parseFloat(s.attributes.current_temperature);
             }
@@ -368,7 +382,6 @@ class ForkUHouseCard extends HTMLElement {
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
-          /* HOST CSS FIX: min-height garantiert, dass die Karte im Layout nicht implodiert */
           :host { display: flex; flex: 1; width: 100%; min-height: 400px; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
           .card {
               position: relative; display: flex; flex-direction: column; flex: 1; width: 100%; 
@@ -670,8 +683,8 @@ class ForkUHouseCard extends HTMLElement {
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label for="image" style="display: block; margin-bottom: 4px; color: var(--secondary-text-color);">Bild oder Ordner-Pfad</label>
-                    <input type="text" id="image" value="${this._config.image || this._config.image_path || '/local/community/fork_u-house_card/images/'}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
+                    <label for="image_path" style="display: block; margin-bottom: 4px; color: var(--secondary-text-color);">Ordner-Pfad der Bilder</label>
+                    <input type="text" id="image_path" value="${this._config.image_path || '/local/community/fork_u-house_card/images/'}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
                 </div>
 
                 <div style="margin-bottom: 24px;">
@@ -694,7 +707,7 @@ class ForkUHouseCard extends HTMLElement {
             </div>
         `;
         
-        this.querySelectorAll('#language, #weather_entity, #image').forEach(el => {
+        this.querySelectorAll('#language, #weather_entity, #image_path').forEach(el => {
             el.addEventListener('change', this.configChanged.bind(this));
         });
 
@@ -718,4 +731,4 @@ class ForkUHouseCard extends HTMLElement {
   }
 
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Story Telling House Card", description: "Modded Edition of fork u house card (Bulletproof Editor, Direct Image CSS)" });
+  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.8", description: "Modded Edition (Classic Image Loader, Adv. GUI Editor)" });
