@@ -1,7 +1,7 @@
 /**
- * Fork_U-House_Card v12.8 (Classic Image Edition)
- * * FIX: Restored ORIGINAL Image Loading Logic 100%
- * * FIX: Flex-Box Height Layout 
+ * Fork_U-House_Card v12.9 (Aspect Ratio Edition)
+ * * FIX: Ghost-Image added to force natural aspect ratio (mimics picture-elements)
+ * * FIX: Restored ORIGINAL Image Loading Logic
  * * FIX: Crash protection for empty rooms/sensors
  * * FEATURE: Advanced GUI Editor
  */
@@ -147,15 +147,12 @@ class ForkUHouseCard extends HTMLElement {
       if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
     }
 
-    // ORIGINAL IMAGE CALCULATOR LOGIC RESTORED
     _calculateImage() {
         const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
         
-        // 1. Pora Dnia
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
 
-        // 2. Święta (Xmas Priority)
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
@@ -163,13 +160,11 @@ class ForkUHouseCard extends HTMLElement {
             return `${path}winter_xmas_${timeOfDay}.png`;
         }
 
-        // 3. Sezon (with German addition)
         let season = this._hass.states[this._config.season_entity]?.state || 'summer';
         const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter', 'frühling': 'spring', 'sommer': 'summer', 'herbst': 'autumn' };
         if (seasonMap[season.toLowerCase()]) season = seasonMap[season.toLowerCase()];
         season = season.toLowerCase();
 
-        // 4. Ścisłe Mapowanie Pogody (Strict Mapping)
         const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
         let weatherSuffix = null;
 
@@ -189,7 +184,6 @@ class ForkUHouseCard extends HTMLElement {
             }
         }
 
-        // 5. Sprawdzenie Boolean w Configu
         if (weatherSuffix) {
             const configKey     = `img_${season}_${timeOfDay}_${weatherSuffix}`;
             const configKey_alt = `img_${season}_${weatherSuffix}_${timeOfDay}`;
@@ -199,27 +193,29 @@ class ForkUHouseCard extends HTMLElement {
             }
         }
 
-        // 6. Fallback (Neutralny)
         return `${path}${season}_${timeOfDay}.png`;
     }
 
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
-      // ORIGINAL IMAGE LOADING LOGIC RESTORED
       const newImage = this._calculateImage();
       if (this._currentImageUrl !== newImage) {
           this._currentImageUrl = newImage;
           const bgEl = this.shadowRoot.querySelector('.bg-image');
-          if (bgEl) {
+          const forcerEl = this.shadowRoot.getElementById('aspect-forcer'); // Unser neues Geisterbild
+          
+          if (bgEl && forcerEl) {
               const img = new Image();
-              img.onload = () => { bgEl.style.backgroundImage = `url('${newImage}')`; };
+              img.onload = () => { 
+                  forcerEl.src = newImage; // Drückt den Rahmen auf!
+                  bgEl.style.backgroundImage = `url('${newImage}')`; 
+              };
               img.onerror = () => { console.warn(`Fork U-House: Bild nicht gefunden: ${newImage}`); };
               img.src = newImage;
           }
       }
 
-      // CRASH FIX FÜR RÄUME (Das lassen wir drin, damit es nicht abstürzt!)
       const roomsData = (this._config.rooms || []).map(r => {
         if (!r) return { valid: false };
         
@@ -362,10 +358,10 @@ class ForkUHouseCard extends HTMLElement {
     _getWindData() {
         let speed = 10, bearing = 270;
         if(this._config.wind_speed_entity && this._hass.states[this._config.wind_speed_entity]) speed = parseFloat(this._hass.states[this._config.wind_speed_entity].state);
-        else if(this._hass.states[this._config.weather_entity || '']?.attributes?.wind_speed) speed = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_speed);
+        else if(this._hass.states[this._config.weather_entity]?.attributes?.wind_speed) speed = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_speed);
 
         if(this._config.wind_direction_entity && this._hass.states[this._config.wind_direction_entity]) bearing = parseFloat(this._hass.states[this._config.wind_direction_entity].state);
-        else if(this._hass.states[this._config.weather_entity || '']?.attributes?.wind_bearing) bearing = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_bearing);
+        else if(this._hass.states[this._config.weather_entity]?.attributes?.wind_bearing) bearing = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_bearing);
             
         return { speed: isNaN(speed)?5:speed, bearing: isNaN(bearing)?270:bearing };
     }
@@ -382,10 +378,10 @@ class ForkUHouseCard extends HTMLElement {
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
-          :host { display: flex; flex: 1; width: 100%; min-height: 400px; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
+          :host { display: block; width: 100%; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
           .card {
-              position: relative; display: flex; flex-direction: column; flex: 1; width: 100%; 
-              min-height: 400px;
+              position: relative; display: block; width: 100%; 
+              /* Keine fixierte Höhe mehr! Aspect-Ratio regiert jetzt! */
               overflow: hidden; text-shadow: rgba(0,0,0,0.4) 0 1px 0px; box-shadow: 0 4px 2px rgba(0,0,0,0.3);
               background: var(--card-background-color,var(--fork-u-bg));
               border-radius: var(--ha-card-border-radius,var(--ha-border-radius-lg,20px));
@@ -435,6 +431,8 @@ class ForkUHouseCard extends HTMLElement {
           .footer-content { font-size: 0.85rem; color: #ccc; white-space: normal; line-height: 1.8; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
         </style>
         <div class="card">
+          <img id="aspect-forcer" style="width: 100%; height: auto; visibility: hidden; display: block;" />
+          
           <div class="bg-image"></div>
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
@@ -731,4 +729,4 @@ class ForkUHouseCard extends HTMLElement {
   }
 
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.8", description: "Modded Edition (Classic Image Loader, Adv. GUI Editor)" });
+  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.9", description: "Modded Edition (Aspect Ratio Fix, Adv. GUI Editor)" });
