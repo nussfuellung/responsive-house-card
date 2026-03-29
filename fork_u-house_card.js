@@ -1,8 +1,8 @@
 /**
- * Fork_U-House_Card v12.3 (AI Storyteller Edition) - MODDED
- * * FIX: Bulletproof Entity Parsing (Prevents crash on missing/climate entities)
- * * FIX: Image Pathing Restored
- * * FIX: Flex-Box Layout
+ * Fork_U-House_Card v12.5 (AI Storyteller Edition) - MODDED
+ * * FIX: Crash protection for empty/null YAML room entries
+ * * FIX: Image Pathing & German Season Translation (Frühling -> spring)
+ * * FIX: Host CSS height to prevent HA layout collapse
  * * FEATURE: Advanced GUI Editor
  */
 
@@ -148,24 +148,30 @@ class ForkUHouseCard extends HTMLElement {
     }
 
     _calculateImage() {
-        // IMAGE FIX: Fallback auf verschiedene Config-Keys und direkten Datei-Support
-        const path = this._config.image || this._config.image_path || "/local/community/fork_u-house_card/images/";
+        let path = this._config.image || this._config.image_path || "/local/community/fork_u-house_card/images/";
         
-        // Wenn der Pfad direkt auf ein Bild verweist (endet mit png/jpg), benutze es direkt!
         if (path.match(/\.(png|jpe?g|webp|gif)$/i)) {
             return path;
+        }
+        if (!path.endsWith('/')) {
+            path += '/';
         }
 
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
+        
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
         if ((month === 12 && day >= 14) || (month === 1 && day <= 14)) return `${path}winter_xmas_${timeOfDay}.png`;
-        let season = this._hass.states[this._config.season_entity || '']?.state || 'summer';
+        
+        // BILD-FIX: Lowercase zwingend VOR der Map ausführen, um "Frühling" richtig zu verarbeiten!
+        let seasonRaw = this._hass.states[this._config.season_entity || '']?.state || 'summer';
+        let season = seasonRaw.toLowerCase();
+        
         const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter', 'frühling': 'spring', 'sommer': 'summer', 'herbst': 'autumn' };
         if (seasonMap[season]) season = seasonMap[season];
-        season = season.toLowerCase();
+        
         const wStateRaw = this._hass.states[this._config.weather_entity || '']?.state;
         let weatherSuffix = null;
 
@@ -194,25 +200,23 @@ class ForkUHouseCard extends HTMLElement {
           this._currentImageUrl = newImage;
           const bgEl = this.shadowRoot.querySelector('.bg-image');
           if (bgEl) {
-              const img = new Image();
-              img.onload = () => { bgEl.style.backgroundImage = `url('${newImage}')`; };
-              img.onerror = () => { console.warn(`Fork-U House: Bild konnte nicht geladen werden -> ${newImage}`); }
-              img.src = newImage;
+              bgEl.style.backgroundImage = `url('${newImage}')`;
           }
       }
 
-      // CRASH FIX: Schusssicheres Auslesen der Entitäten (Sensoren UND Thermostate)
+      // CRASH-FIX: Schusssicheres Auslesen, ignoriert komplett kaputte oder leere Einträge
       const roomsData = (this._config.rooms || []).map(r => {
+        if (!r) return { valid: false }; // Fängt kaputte YAML-Zeilen ab
+        
         let v = NaN;
-        if (r.entity && this._hass.states[r.entity]) {
+        if (r.entity && typeof r.entity === 'string' && this._hass.states[r.entity]) {
             const s = this._hass.states[r.entity];
             v = parseFloat(s.state);
-            // Wenn es ein Thermostat (Climate) ist, steht die Temperatur in den Attributen!
+            // Temperatur-Attribut auslesen (wichtig für Thermostate)
             if (isNaN(v) && s.attributes && s.attributes.current_temperature !== undefined) {
                 v = parseFloat(s.attributes.current_temperature);
             }
         }
-        // Nur wenn v eine gültige Nummer ist, wird valid auf true gesetzt
         const isValid = typeof v === 'number' && !isNaN(v);
         return { ...r, value: v, valid: isValid };
       });
@@ -239,7 +243,7 @@ class ForkUHouseCard extends HTMLElement {
       const container = this.shadowRoot.querySelector('.badges-layer');
       if (!container) return;
       container.innerHTML = rooms.map(room => {
-        if (!room.valid) return ''; // Überspringt kaputte Räume, anstatt abzustürzen!
+        if (!room.valid) return ''; 
         const top = room.y ?? 50; const left = room.x ?? 50;
         const colorClass = this._getTempColorClass(room.value);
         return `
@@ -364,10 +368,11 @@ class ForkUHouseCard extends HTMLElement {
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
-          :host { display: flex; flex: 1; width: 100%; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
+          /* HOST CSS FIX: min-height garantiert, dass die Karte im Layout nicht implodiert */
+          :host { display: flex; flex: 1; width: 100%; min-height: 400px; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
           .card {
               position: relative; display: flex; flex-direction: column; flex: 1; width: 100%; 
-              min-height: 400px; /* Garantiert, dass die Karte im Editor sichtbar bleibt */
+              min-height: 400px;
               overflow: hidden; text-shadow: rgba(0,0,0,0.4) 0 1px 0px; box-shadow: 0 4px 2px rgba(0,0,0,0.3);
               background: var(--card-background-color,var(--fork-u-bg));
               border-radius: var(--ha-card-border-radius,var(--ha-border-radius-lg,20px));
@@ -713,4 +718,4 @@ class ForkUHouseCard extends HTMLElement {
   }
 
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.3", description: "Modded Edition (Bulletproof Entities, DE-Lang, Adv. GUI Editor)" });
+  window.customCards.push({ type: "fork-u-house-card", name: "Story Telling House Card", description: "Modded Edition of fork u house card (Bulletproof Editor, Direct Image CSS)" });
