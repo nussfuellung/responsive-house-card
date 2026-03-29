@@ -1,8 +1,8 @@
 /**
- * Fork_U-House_Card v12.9 (Aspect Ratio Edition)
- * * FIX: Ghost-Image added to force natural aspect ratio (mimics picture-elements)
- * * FIX: Restored ORIGINAL Image Loading Logic
- * * FIX: Crash protection for empty rooms/sensors
+ * Fork_U-House_Card v13.0 (The "Auto-Retry" Edition)
+ * * FIX: Implemented Auto-Retry logic for HA's lazy static file server (404 workaround)
+ * * FIX: Aspect Ratio Ghost Image
+ * * FIX: Crash protection for empty rooms
  * * FEATURE: Advanced GUI Editor
  */
 
@@ -148,8 +148,15 @@ class ForkUHouseCard extends HTMLElement {
     }
 
     _calculateImage() {
-        const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
+        let path = this._config.image_path || this._config.image || "/local/community/fork_u-house_card/images/";
         
+        if (path.match(/\.(png|jpe?g|webp|gif)$/i)) {
+            return path;
+        }
+        if (!path.endsWith('/')) {
+            path += '/';
+        }
+
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
 
@@ -160,28 +167,24 @@ class ForkUHouseCard extends HTMLElement {
             return `${path}winter_xmas_${timeOfDay}.png`;
         }
 
-        let season = this._hass.states[this._config.season_entity]?.state || 'summer';
+        let season = 'summer'; // Standard
+        if (this._config.season_entity && this._hass.states[this._config.season_entity]) {
+            season = String(this._hass.states[this._config.season_entity].state).trim().toLowerCase();
+        }
+        
         const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter', 'frühling': 'spring', 'sommer': 'summer', 'herbst': 'autumn' };
-        if (seasonMap[season.toLowerCase()]) season = seasonMap[season.toLowerCase()];
-        season = season.toLowerCase();
+        if (seasonMap[season]) season = seasonMap[season];
 
         const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
         let weatherSuffix = null;
 
         if (wStateRaw) {
             const s = wStateRaw.toLowerCase();
-            
-            if (['lightning', 'lightning-rainy'].includes(s)) {
-                weatherSuffix = 'lightning';
-            } else if (['rainy', 'pouring'].includes(s)) {
-                weatherSuffix = 'rainy';
-            } else if (['snowy', 'snowy-rainy'].includes(s)) {
-                weatherSuffix = 'snowy';
-            } else if (s === 'hail') {
-                weatherSuffix = 'hail';
-            } else if (s === 'fog') {
-                weatherSuffix = 'fog';
-            }
+            if (['lightning', 'lightning-rainy'].includes(s)) weatherSuffix = 'lightning';
+            else if (['rainy', 'pouring'].includes(s)) weatherSuffix = 'rainy';
+            else if (['snowy', 'snowy-rainy'].includes(s)) weatherSuffix = 'snowy';
+            else if (s === 'hail') weatherSuffix = 'hail';
+            else if (s === 'fog') weatherSuffix = 'fog';
         }
 
         if (weatherSuffix) {
@@ -200,19 +203,52 @@ class ForkUHouseCard extends HTMLElement {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
       const newImage = this._calculateImage();
+      
       if (this._currentImageUrl !== newImage) {
           this._currentImageUrl = newImage;
           const bgEl = this.shadowRoot.querySelector('.bg-image');
-          const forcerEl = this.shadowRoot.getElementById('aspect-forcer'); // Unser neues Geisterbild
+          const forcerEl = this.shadowRoot.getElementById('aspect-forcer');
+          const errEl = this.shadowRoot.getElementById('img-error-box');
           
           if (bgEl && forcerEl) {
-              const img = new Image();
-              img.onload = () => { 
-                  forcerEl.src = newImage; // Drückt den Rahmen auf!
-                  bgEl.style.backgroundImage = `url('${newImage}')`; 
+              let retryCount = 0;
+              const maxRetries = 3; // Wir probieren es bis zu 3 Mal!
+
+              // EINE FUNKTION DIE SICH SELBST WIEDERHOLT BEI FEHLER
+              const loadWithRetry = (urlToLoad) => {
+                  const img = new Image();
+                  
+                  img.onload = () => { 
+                      forcerEl.src = urlToLoad; 
+                      bgEl.style.backgroundImage = `url('${urlToLoad}')`; 
+                      if (errEl) errEl.style.display = 'none';
+                      console.log("%c[Fork-U Card] Bild erfolgreich geladen!", "color: #34D399; font-weight: bold;");
+                  };
+                  
+                  img.onerror = () => { 
+                      if (retryCount < maxRetries) {
+                          retryCount++;
+                          console.warn(`[Fork-U Card] Ladeversuch ${retryCount} fehlgeschlagen. Versuche es in 1 Sekunde erneut...`);
+                          
+                          // Wir hängen einen Cache-Buster an, um HA zum Neuladen zu zwingen!
+                          setTimeout(() => {
+                              const retryUrl = newImage + "?retry=" + Date.now();
+                              loadWithRetry(retryUrl);
+                          }, 1000); // 1 Sekunde Pause
+                      } else {
+                          console.error(`[Fork-U Card] BILD FEHLT ENDGÜLTIG -> ${newImage}`);
+                          if (errEl) {
+                              errEl.innerHTML = `⚠️ <b>Bild konnte nicht geladen werden!</b><br><span style="font-size:0.8em">Home Assistant meldet Fehler 404 (Nicht gefunden).<br>Pfad: <code>${newImage}</code></span>`;
+                              errEl.style.display = 'block';
+                          }
+                      }
+                  };
+                  
+                  img.src = urlToLoad;
               };
-              img.onerror = () => { console.warn(`Fork U-House: Bild nicht gefunden: ${newImage}`); };
-              img.src = newImage;
+
+              // Startet den ersten Ladeversuch
+              loadWithRetry(newImage);
           }
       }
 
@@ -380,8 +416,7 @@ class ForkUHouseCard extends HTMLElement {
         <style>
           :host { display: block; width: 100%; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
           .card {
-              position: relative; display: block; width: 100%; 
-              /* Keine fixierte Höhe mehr! Aspect-Ratio regiert jetzt! */
+              position: relative; display: block; width: 100%; min-height: 400px;
               overflow: hidden; text-shadow: rgba(0,0,0,0.4) 0 1px 0px; box-shadow: 0 4px 2px rgba(0,0,0,0.3);
               background: var(--card-background-color,var(--fork-u-bg));
               border-radius: var(--ha-card-border-radius,var(--ha-border-radius-lg,20px));
@@ -431,8 +466,9 @@ class ForkUHouseCard extends HTMLElement {
           .footer-content { font-size: 0.85rem; color: #ccc; white-space: normal; line-height: 1.8; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
         </style>
         <div class="card">
-          <img id="aspect-forcer" style="width: 100%; height: auto; visibility: hidden; display: block;" />
+          <div id="img-error-box" style="position:absolute; top:16px; left:16px; right:16px; background:rgba(220, 38, 38, 0.9); color:#fff; padding:12px; border-radius:8px; z-index:100; display:none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
           
+          <img id="aspect-forcer" style="width: 100%; height: auto; visibility: hidden; display: block;" />
           <div class="bg-image"></div>
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
@@ -685,6 +721,11 @@ class ForkUHouseCard extends HTMLElement {
                     <input type="text" id="image_path" value="${this._config.image_path || '/local/community/fork_u-house_card/images/'}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
                 </div>
 
+                <div style="margin-bottom: 16px;">
+                    <label for="season_entity" style="display: block; margin-bottom: 4px; color: var(--secondary-text-color);">Jahreszeiten Entität (z.B. sensor.season)</label>
+                    <input type="text" id="season_entity" value="${this._config.season_entity || ''}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
+                </div>
+
                 <div style="margin-bottom: 24px;">
                     <label for="weather_entity" style="display: block; margin-bottom: 4px; color: var(--secondary-text-color);">Wetter Entität (z.B. weather.forecast_home)</label>
                     <input type="text" id="weather_entity" value="${this._config.weather_entity || ''}" style="width: 100%; padding: 8px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px; box-sizing: border-box;">
@@ -705,7 +746,7 @@ class ForkUHouseCard extends HTMLElement {
             </div>
         `;
         
-        this.querySelectorAll('#language, #weather_entity, #image_path').forEach(el => {
+        this.querySelectorAll('#language, #weather_entity, #image_path, #season_entity').forEach(el => {
             el.addEventListener('change', this.configChanged.bind(this));
         });
 
@@ -729,4 +770,4 @@ class ForkUHouseCard extends HTMLElement {
   }
 
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.9", description: "Modded Edition (Aspect Ratio Fix, Adv. GUI Editor)" });
+  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V13.0", description: "Modded Edition (Auto-Retry, Aspect Ratio, GUI Editor)" });
