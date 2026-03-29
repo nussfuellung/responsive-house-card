@@ -1,21 +1,18 @@
 /**
- * Fork_U-House_Card v12.1 (AI Storyteller Edition) - MODDED
- * * FIX: Responsive Height (100% fill)
+ * Fork_U-House_Card v12.2 (AI Storyteller Edition) - MODDED
+ * * FIX: Flex-Box Layout (Prevents 0px height collapse!)
  * * FEATURE: German Translation (de) added
  * * FEATURE: Clickable Badges (opens more-info dialog)
- * * FEATURE: Advanced GUI Editor (Add/Edit/Remove Entities via UI)
+ * * FEATURE: Advanced GUI Editor
  */
 
 const TRANSLATIONS = {
     en: {
-        loading: "Analyzing environmental data...",
-        home_median: "Home",
-        
+        loading: "Analyzing environmental data...", home_median: "Home",
         clear_night: "Clear Night", cloudy: "Cloudy", fog: "Fog", hail: "Hail",
         lightning: "Thunderstorm", lightning_rainy: "Thunderstorm & Rain",
         partlycloudy: "Partly Cloudy", pouring: "Pouring Rain", rainy: "Rainy",
         snowy: "Snowy", sunny: "Sunny", windy: "Windy",
-        
         alert_storm: "⚠️ CRITICAL ALERT: A storm with lightning is active nearby. Strong winds and heavy rain are expected. Please secure loose objects outside and stay indoors for safety.",
         alert_aqi_bad: "😷 SMOG ALERT: Air quality is critical (PM2.5: {val}). Prolonged exposure is dangerous. Keep windows closed and run your air purifier.",
         alert_aqi_mod: "😶 AIR QUALITY WARNING: PM2.5 levels are elevated ({val}). Sensitive groups should limit outdoor exertion today.",
@@ -32,38 +29,16 @@ const TRANSLATIONS = {
         advice_gaming: "🎮 GAMING MODE: Immersive lighting active. Notifications silenced.",
     },
     pl: {
-        loading: "Analizuję dane środowiskowe...",
-        home_median: "Dom",
-        
-        clear_night: "Bezchmurnie", cloudy: "Pochmurno", fog: "Mgła", hail: "Grad",
-        lightning: "Burza", lightning_rainy: "Burza z deszczem",
-        partlycloudy: "Częściowe zachm.", pouring: "Ulewa", rainy: "Deszcz",
-        snowy: "Śnieg", sunny: "Słonecznie", windy: "Wietrznie",
-        
-        alert_storm: "<span class='value-pill pill-1'>⚠️ <b>OSTRZEŻENIE KRYTYCZNE</b></span>  W pobliżu wykryto burzę. Spodziewaj się wyładowań i silnego wiatru. Zabezpiecz ogród i pozostań w domu.",
-        alert_aqi_bad: "<span class='value-pill pill-1'>😷 <b>ALARM SMOGOWY</b></span>  Jakość powietrza jest fatalna <span class='value-pill'>PM2.5: <b>{val}</b></span>. Wyjście na zewnątrz grozi problemami oddechowymi. Zamknij okna i włącz oczyszczacz.",
-        alert_aqi_mod: "<span class='value-pill pill-1'>😶 <b>OSTRZEŻENIE</b></span>  Podwyższone stężenie pyłów <span class='value-pill'>PM2.5: <b>{val}</b></span>. Jakość powietrza jest przeciętna. Osoby wrażliwe powinny unikać wysiłku na zewnątrz.",
-        alert_pollen: "<span class='value-pill pill-1'>🤧 <b>ALARM DLA ALERGIKÓW</b></span>  Wykryto bardzo wysokie stężenie pyłków. Przygotuj leki przeciwhistaminowe i unikaj wietrzenia sypialni.",
-        advice_rain_soon: "<span class='value-pill pill-1'>☂️ <b>WEŹ PARASOL</b></span>  Nadciągają opady deszczu. Spodziewaj się ich ok. godziny <span class='value-pill'><b>{time}</b></span>. Prognozowane <span class='value-pill'><b>{val}</b> mm</span>",
-        advice_snow_soon: "<span class='value-pill pill-1'>❄️ <b>ZACHOWAJ OSTROŻNOŚĆ</b></span>  Ok. godziny <span class='value-pill'><b>{time}</b></span> zacznie padać śnieg. Warunki drogowe mogą się gwałtownie pogorszyć.",
-        advice_rain_now: "<span class='value-pill pill-1'>🌧️ <b>DESZCZ</b></span>  Aktualny opad to <span class='value-pill'><b>{val}</b> mm</span>. Jest mokro i ślisko. Jeśli musisz wyjść, koniecznie weź kurtkę przeciwdeszczową.",
-        advice_snow_now: "<span class='value-pill pill-1'>🌨️ <b>ŚNIEG</b></span>  Na zewnątrz sypie śnieg. Jest <span class='value-pill'><b>malowniczo</b></span>, ale pamiętaj o ciepłym ubraniu i czapce.",
-        alert_uv_high: "<span class='value-pill pill-1'>☀️ <b>PROMIENIOWANIE</b></span>  Indeks UV wynosi <span class='value-pill'><b>{val}</b></span>. Skóra może ulec poparzeniu. Koniecznie użyj kremu z filtrem i okularów przeciwsłonecznych.",
-        advice_cold_wind: "<span class='value-pill pill-1'>🥶 <b>WIATR</b></span>  Jest <span class='value-pill'><b>{val}</b> °C</span>, ale silny wiatr sprawia, że temperatura odczuwalna jest znacznie niższa. Ubierz się „na cebulkę” i chroń uszy.",
-        advice_cold: "<span class='value-pill pill-1'>🧣 <b>ZIMNO</b></span>  Temperatura wynosi <span class='value-pill'><b>{val}</b> °C</span>. Ubierz ciepłą kurtkę przed wyjściem. Warto sprawdzić szczelność okien.",
-        advice_hot: "<span class='value-pill pill-1'>🔥 <b>GORĄC</b></span>  Temperatura osiągnęła <span class='value-pill'><b>{val}</b> °C</span>. Unikaj słońca w godzinach szczytu, pij dużo wody i zasłoń rolety.",
-        advice_nice: "😎 Pogoda jest stabilna, temperatura przyjemna <span class='value-pill'><b>{val}</b> °C</span>. To <span class='value-pill'>idealny</span> moment na spacer lub przewietrzenie mieszkania.",
-        advice_gaming: "<span class='value-pill pill-1'>🎮 <b>TRYB IMERSYJNY</b></span>  Tryb kina lub gry aktywny. Sterowanie <span class='value-pill'><b>AmbiLight</b></span> włączone.",
+        loading: "Analizuję dane środowiskowe...", home_median: "Dom",
+        advice_nice: "😎 Pogoda jest stabilna, temperatura przyjemna <span class='value-pill'><b>{val}</b> °C</span>. To <span class='value-pill'>idealny</span> moment na spacer."
     },
     de: {
         loading: "Analysiere Umweltdaten...",
         home_median: "Haus",
-        
         clear_night: "Klare Nacht", cloudy: "Wolkig", fog: "Nebel", hail: "Hagel",
         lightning: "Gewitter", lightning_rainy: "Gewitter mit Regen",
         partlycloudy: "Teils wolkig", pouring: "Starker Regen", rainy: "Regen",
         snowy: "Schnee", sunny: "Sonnig", windy: "Windig",
-        
         alert_storm: "<span class='value-pill pill-1'>⚠️ <b>KRITISCHER ALARM</b></span> Ein Gewitter ist in der Nähe. Starker Wind und Regen werden erwartet. Bitte bleib im Haus und sichere lose Gegenstände.",
         alert_aqi_bad: "<span class='value-pill pill-1'>😷 <b>SMOG ALARM</b></span> Luftqualität ist extrem schlecht <span class='value-pill'>PM2.5: <b>{val}</b></span>. Fenster geschlossen halten und Luftreiniger aktivieren!",
         alert_aqi_mod: "<span class='value-pill pill-1'>😶 <b>WARNUNG</b></span> Erhöhte Feinstaubwerte <span class='value-pill'>PM2.5: <b>{val}</b></span>. Sensible Personen sollten sich heute schonen.",
@@ -120,7 +95,7 @@ class ForkUHouseCard extends HTMLElement {
         uv_entity: "sensor.uv_index",
         wind_speed_entity: "sensor.wind_speed",
         wind_direction_entity: "sensor.wind_bearing",
-        rooms: [{ name: "Wohnzimmer", entity: "climate.wohnzimmer", x: 50, y: 50, weight: 1 }]
+        rooms: [{ name: "Wohnzimmer", entity: "", x: 50, y: 50, weight: 1 }]
       };
     }
   
@@ -180,11 +155,11 @@ class ForkUHouseCard extends HTMLElement {
         const month = now.getMonth() + 1;
         const day = now.getDate();
         if ((month === 12 && day >= 14) || (month === 1 && day <= 14)) return `${path}winter_xmas_${timeOfDay}.png`;
-        let season = this._hass.states[this._config.season_entity]?.state || 'summer';
+        let season = this._hass.states[this._config.season_entity || '']?.state || 'summer';
         const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter', 'frühling': 'spring', 'sommer': 'summer', 'herbst': 'autumn' };
         if (seasonMap[season]) season = seasonMap[season];
         season = season.toLowerCase();
-        const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
+        const wStateRaw = this._hass.states[this._config.weather_entity || '']?.state;
         let weatherSuffix = null;
 
         if (wStateRaw) {
@@ -253,7 +228,7 @@ class ForkUHouseCard extends HTMLElement {
           <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;" data-entity="${room.entity}">
             <div class="badge-dot"></div>
             <div class="badge-content">
-              <span class="badge-name">${room.name}</span>
+              <span class="badge-name">${room.name || ''}</span>
               <span class="badge-val">${room.value.toFixed(1)}°</span>
             </div>
           </div>`;
@@ -283,7 +258,7 @@ class ForkUHouseCard extends HTMLElement {
     }
 
     _generateAIStatus(median) {
-        const wObj = this._hass.states[this._config.weather_entity];
+        const wObj = this._hass.states[this._config.weather_entity || ''];
         if (!wObj) return;
 
         const condition = this._config.test_weather_state || wObj.state;
@@ -351,10 +326,10 @@ class ForkUHouseCard extends HTMLElement {
     _getWindData() {
         let speed = 10, bearing = 270;
         if(this._config.wind_speed_entity && this._hass.states[this._config.wind_speed_entity]) speed = parseFloat(this._hass.states[this._config.wind_speed_entity].state);
-        else if(this._hass.states[this._config.weather_entity]?.attributes?.wind_speed) speed = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_speed);
+        else if(this._hass.states[this._config.weather_entity || '']?.attributes?.wind_speed) speed = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_speed);
 
         if(this._config.wind_direction_entity && this._hass.states[this._config.wind_direction_entity]) bearing = parseFloat(this._hass.states[this._config.wind_direction_entity].state);
-        else if(this._hass.states[this._config.weather_entity]?.attributes?.wind_bearing) bearing = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_bearing);
+        else if(this._hass.states[this._config.weather_entity || '']?.attributes?.wind_bearing) bearing = parseFloat(this._hass.states[this._config.weather_entity].attributes.wind_bearing);
             
         return { speed: isNaN(speed)?5:speed, bearing: isNaN(bearing)?270:bearing };
     }
@@ -371,10 +346,13 @@ class ForkUHouseCard extends HTMLElement {
     _render() {
       this.shadowRoot.innerHTML = `
         <style>
-          :host { display: block; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; height: 100%;}
+          /* WICHTIGER FIX: flex: 1 erlaubt der Karte zu wachsen, 
+            verhindert aber, dass sie auf 0 Pixel schrumpft! 
+          */
+          :host { display: flex; flex: 1; width: 100%; --fork-u-bg: #1e2024; --color-cold: #60A5FA; --color-opt: #34D399; --color-warm: #FBBF24; --color-hot: #F87171; }
           .card {
-              position: relative; display: flex; flex-direction: column; width: 100%; 
-              height: 100%; min-height: 350px;
+              position: relative; display: flex; flex-direction: column; flex: 1; width: 100%; 
+              min-height: 400px; /* Garantiert, dass die Karte im Editor sichtbar bleibt */
               overflow: hidden; text-shadow: rgba(0,0,0,0.4) 0 1px 0px; box-shadow: 0 4px 2px rgba(0,0,0,0.3);
               background: var(--card-background-color,var(--fork-u-bg));
               border-radius: var(--ha-card-border-radius,var(--ha-border-radius-lg,20px));
@@ -641,7 +619,7 @@ class ForkUHouseCard extends HTMLElement {
                 </div>
                 
                 <div style="margin-bottom: 8px;">
-                    <label style="display: block; font-size: 0.8em; color: var(--secondary-text-color);">Entitäts-ID (z.B. sensor.wohnzimmer_temp)</label>
+                    <label style="display: block; font-size: 0.8em; color: var(--secondary-text-color);">Entitäts-ID (z.B. climate.wohnzimmer)</label>
                     <input class="room-input" data-index="${i}" data-field="entity" value="${room.entity || ''}" style="width: 100%; padding: 6px; background: var(--card-background-color); color: var(--primary-text-color); border: 1px solid var(--divider-color); border-radius: 4px;">
                 </div>
                 
@@ -707,7 +685,13 @@ class ForkUHouseCard extends HTMLElement {
     }
 }
   
-  customElements.define('fork-u-house-card-editor', ForkUHouseCardEditor);
-  customElements.define('fork-u-house-card', ForkUHouseCard);
+  // SICHERHEITS-CHECK: Verhindert Abstürze beim Neuladen der Karte
+  if (!customElements.get('fork-u-house-card-editor')) {
+      customElements.define('fork-u-house-card-editor', ForkUHouseCardEditor);
+  }
+  if (!customElements.get('fork-u-house-card')) {
+      customElements.define('fork-u-house-card', ForkUHouseCard);
+  }
+
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.1", description: "Modded Edition (Height Fix, DE-Lang, Adv. GUI Editor)" });
+  window.customCards.push({ type: "fork-u-house-card", name: "Fork U-House Card V12.2", description: "Modded Edition (Flex Fix, DE-Lang, Adv. GUI Editor)" });
